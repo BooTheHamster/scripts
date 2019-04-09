@@ -24,19 +24,17 @@ except_playlist_names = {
 def get_itunes_library():
     itunes_library_path = Path.joinpath(Path.home(), "Music", "iTunes", "iTunes Music Library.xml")
 
-    with open(itunes_library_path, 'rb') as fp:
+    with itunes_library_path.open('rb') as fp:
         return plistlib.load(fp)
 
 
 def get_tracks_map(library):
     result = {}
 
-    drive_re = re.compile(r'[a-zA-Z]?:?(.*)')
-
-    tracks_file_path = Path.joinpath(Path.home(), "Desktop", "tracks.txt")
+    drive_re = re.compile(r'.+(/Music.+)')
 
     for trackId, trackInfo in library['Tracks'].items():
-        location = urllib.parse.unquote(urllib.parse.urlparse(trackInfo['Location']).path)
+        location = urllib.parse.unquote(trackInfo['Location'])
         match = drive_re.match(location)
 
         if match is None:
@@ -73,8 +71,7 @@ def get_smart_playlist_map(library, tracks_map):
 
 
 def create_playlist_files(playlist_map):
-    out_folder = Path.joinpath(Path.home(), "Downloads", "Playlists")
-    # out_folder = 'C:\\Users\\sevoleg\\Downloads\\Playlists'
+    out_folder = Path.joinpath(Path.home(), "Downloads", "Playlists").as_posix()
 
     if os.path.exists(out_folder):
         shutil.rmtree(out_folder)
