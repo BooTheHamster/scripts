@@ -6,9 +6,10 @@ import re
 import urllib.parse
 import shutil
 from pathlib import Path
+from operator import itemgetter
 
 # Наименования исключаемых умных списков воспроизведения.
-except_playlist_names = {
+EXCEPT_PLAYLIST_NAMES = {
     'Radio',
     'Genius',
     'Аудиокниги',
@@ -19,6 +20,12 @@ except_playlist_names = {
     'Музыка',
     'Загружено',
     'Медиатека'}
+
+TRACK_FIELD_TRACKS = 'Tracks'
+TRACK_FIELD_LOCATION = 'Location'
+TRACK_FIELD_ALBUM = 'Album'
+TRACK_FIELD_YEAR = 'Year'
+TRACK_FIELD_NUMBER = 'Track Number'
 
 
 def get_itunes_library():
@@ -31,17 +38,25 @@ def get_itunes_library():
 def get_tracks_map(library):
     result = {}
 
+    # Берется только то, что лежит в каталоге с наименованием Music и ниже.
     drive_re = re.compile(r'.+(/Music.+)')
 
-    for trackId, trackInfo in library['Tracks'].items():
-        location = urllib.parse.unquote(trackInfo['Location'])
+    for trackId, trackInfo in library[TRACK_FIELD_TRACKS].items():
+        location = urllib.parse.unquote(trackInfo[TRACK_FIELD_LOCATION])
         match = drive_re.match(location)
 
         if match is None:
             continue
 
-        track_path = 'TF1:' + match[1]
-        result[trackId] = track_path.replace('/', '\\')
+        # Fiio X1 II использует Windows пути (проверить возможно ли использование posix пути).
+        track = {
+            TRACK_FIELD_LOCATION: 'TF1:' + match[1].replace('/', '\\'),
+            TRACK_FIELD_ALBUM: trackInfo[TRACK_FIELD_ALBUM] if TRACK_FIELD_ALBUM in trackInfo else '',
+            TRACK_FIELD_YEAR: trackInfo[TRACK_FIELD_YEAR] if TRACK_FIELD_YEAR in trackInfo else 0,
+            TRACK_FIELD_NUMBER: trackInfo[TRACK_FIELD_NUMBER] if TRACK_FIELD_NUMBER in trackInfo else 0
+        }
+
+        result[trackId] = track
 
     return result
 
@@ -52,7 +67,7 @@ def get_smart_playlist_map(library, tracks_map):
     for playlist in library['Playlists']:
         playlist_name = playlist['Name']
 
-        if playlist_name in except_playlist_names:
+        if playlist_name in EXCEPT_PLAYLIST_NAMES:
             # Пропускаем стандартные списки воспроизведения.
             continue
 
@@ -71,23 +86,26 @@ def get_smart_playlist_map(library, tracks_map):
 
 
 def create_playlist_files(playlist_map):
-    out_folder = Path.joinpath(Path.home(), "Downloads", "Playlists").as_posix()
+    out_folder = Path.joinpath(Path.home(), "Downloads", "Playlists")
 
-    if os.path.exists(out_folder):
-        shutil.rmtree(out_folder)
+    if out_folder.exists():
+        shutil.rmtree(out_folder.as_posix())
 
-    os.makedirs(out_folder)
+    out_folder.mkdir()
 
     for playlist_name, tracks in playlist_map.items():
-        playlist_name1 = re.sub(r'[^\-\d\s\w_\']+', '', playlist_name)
-        out_playlist_filename = os.path.join(out_folder, playlist_name1) + '.m3u'
+        # Сортировка треков в списке воспроизведения по году, альбому и номеру трека.
+        tracks.sort(key=itemgetter(TRACK_FIELD_YEAR, TRACK_FIELD_ALBUM, TRACK_FIELD_NUMBER))
 
-        with open(out_playlist_filename, 'wt', encoding="utf-8") as outfile:
+        playlist_name1 = re.sub(r'[^\-\d\s\w_\']+', '', playlist_name)
+        out_playlist_filename = Path.joinpath(out_folder, playlist_name1).with_suffix('.m3u')
+
+        with out_playlist_filename.open('wt', encoding="utf-8") as outfile:
             print('Create:', playlist_name, ' =>', out_playlist_filename)
             outfile.write('#EXTM3U\n')
 
             for track in tracks:
-                outfile.write(track)
+                outfile.write(track[TRACK_FIELD_LOCATION])
                 outfile.write('\n')
 
 
