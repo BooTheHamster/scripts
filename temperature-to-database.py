@@ -36,7 +36,7 @@ def get_temperature_value(temp_in_string):
     if not temp:
         return 0
 
-    return float(temp[0])
+    return round(float(temp[0]))
 
 
 def get_temperatures():
