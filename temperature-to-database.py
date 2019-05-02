@@ -8,7 +8,6 @@ import datetime
 import ptvsd
 
 #ptvsd.enable_attach(address=('192.168.1.14', 3000), redirect_output=True)
-
 #ptvsd.wait_for_attach()
 
 class Connection:
@@ -44,10 +43,12 @@ def get_temperatures():
     cpu = 0
     mb1 = 0
     mb2 = 0
+    atz1 = 0
+    atz2 = 0
 
-    out = exec_shell('sensors it8728-isa-0a30 coretemp-isa-0000')
+    out = exec_shell('sensors coretemp-isa-0000').split("\n")
 
-    for line in out.split("\n"):
+    for line in out:
         if 'Core 0:' in line:
             core0 = get_temperature_value(line)
 
@@ -56,7 +57,19 @@ def get_temperatures():
 
         if 'Package id 0:' in line:
             cpu = get_temperature_value(line)
+            
+    out = exec_shell('sensors acpitz-virtual-0').split("\n")
 
+    for line in out:
+        if 'temp1:' in line:
+            atz1 = get_temperature_value(line)
+
+        if 'temp2:' in line:
+            atz2 = get_temperature_value(line)
+
+    out = exec_shell('sensors it8728-isa-0a30').split("\n")
+
+    for line in out:
         if 'temp1:' in line:
             mb1 = get_temperature_value(line)
 
@@ -70,7 +83,18 @@ def get_temperatures():
     sdb = float(temps[8])
     sdc = float(temps[13])
 
-    return {'core0': core0, 'core1': core1, 'cpu': cpu, 'mb1': mb1, 'mb2': mb2, 'sda': sda, 'sdb': sdb, 'sdc': sdc, 'timestamp': datetime.datetime.now()}
+    return {
+        'core0': core0,
+        'core1': core1,
+        'cpu': cpu,
+        'atz1': atz1,
+        'atz2': atz2,
+        'mb1': mb1,
+        'mb2': mb2,
+        'sda': sda,
+        'sdb': sdb,
+        'sdc': sdc,
+        'timestamp': datetime.datetime.now()}
 
 
 def do_insert_temperatures(connection: Connection):
@@ -84,7 +108,7 @@ def do_insert_temperatures(connection: Connection):
     
     query = "insert into temperatures.temperatures " \
             "(Core0, Core1, CPU, ATZ1, ATZ2, MB1, MB2, SDA, SDB, SDC, TimeStamp) " \
-            "values (%(core0)s, %(core1)s, %(cpu)s, 0, 0, %(mb1)s, %(mb2)s, %(sda)s, %(sdb)s, %(sdc)s, %(timestamp)s)"
+            "values (%(core0)s, %(core1)s, %(cpu)s, %(atz1)s, %(atz2)s, %(mb1)s, %(mb2)s, %(sda)s, %(sdb)s, %(sdc)s, %(timestamp)s)"
             
     postgresql_cursor.execute(query, temperatures)
 
