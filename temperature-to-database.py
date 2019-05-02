@@ -7,8 +7,9 @@ import psycopg2.extras
 import datetime
 import ptvsd
 
-#ptvsd.enable_attach(address=('192.168.1.14', 3000), redirect_output=True)
-#ptvsd.wait_for_attach()
+
+# ptvsd.enable_attach(address=('192.168.1.14', 3000), redirect_output=True)
+# ptvsd.wait_for_attach()
 
 class Connection:
     def __init__(self, host, database, user, password):
@@ -26,6 +27,7 @@ def exec_shell(shell_command):
         return err
 
     return out.decode(encoding="utf8")
+
 
 def get_temperature_value(temp_in_string):
     regex = re.compile(r'^.*:+\s+(\++\d+\.\d+)', re.DOTALL)
@@ -57,7 +59,7 @@ def get_temperatures():
 
         if 'Package id 0:' in line:
             cpu = get_temperature_value(line)
-            
+
     out = exec_shell('sensors acpitz-virtual-0').split("\n")
 
     for line in out:
@@ -105,11 +107,11 @@ def do_insert_temperatures(connection: Connection):
         user=connection.user,
         password=connection.password)
     postgresql_cursor = postgresql_connection.cursor()
-    
+
     query = "insert into temperatures.temperatures " \
             "(Core0, Core1, CPU, ATZ1, ATZ2, MB1, MB2, SDA, SDB, SDC, TimeStamp) " \
             "values (%(core0)s, %(core1)s, %(cpu)s, %(atz1)s, %(atz2)s, %(mb1)s, %(mb2)s, %(sda)s, %(sdb)s, %(sdc)s, %(timestamp)s)"
-            
+
     postgresql_cursor.execute(query, temperatures)
 
     postgresql_connection.commit()
@@ -117,5 +119,5 @@ def do_insert_temperatures(connection: Connection):
 
 
 if __name__ == "__main__":
-    g_connection = Connection('192.168.1.14', 'temperatures', 'temperatures', 'temperatures')    
+    g_connection = Connection('192.168.1.14', 'temperatures', 'temperatures', 'temperatures')
     do_insert_temperatures(g_connection)
