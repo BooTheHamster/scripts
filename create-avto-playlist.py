@@ -5,6 +5,7 @@ import re
 import urllib.parse
 import shutil
 from pathlib import Path
+import subprocess
 
 TRACK_FIELD_TRACKS = 'Tracks'
 TRACK_FIELD_LOCATION = 'Location'
@@ -20,6 +21,16 @@ def get_itunes_library():
 
     with itunes_library_path.open('rb') as fp:
         return plistlib.load(fp)
+
+
+def exec_shell(shell_command):
+    cmd = subprocess.Popen(shell_command, shell=True, stdout=subprocess.PIPE)
+    out, err = cmd.communicate()
+
+    if not (err is None):
+        return err
+
+    return out.decode(encoding="utf8")
 
 
 def get_tracks_map(library):
@@ -86,10 +97,15 @@ def create_playlist_files(tracks):
 
         destination_file = Path.joinpath(
             out_folder,
-            f'{artist} - {name}{source_file.suffix}')
+            f'{artist} - {name}.mp3')
 
-        print(f'Copy {source_file.as_posix()} to {destination_file.as_posix()} ...')
-        shutil.copyfile(source_file.as_posix(), destination_file.as_posix())
+        if source_file.suffix == '.m4a':
+            print(f'Convert {source_file.as_posix()} to {destination_file.as_posix()} ...')
+            convert_cmd = f'ffmpeg -i "{source_file.as_posix()}" -loglevel panic -y -vn -acodec libmp3lame -ab 320k "{destination_file.as_posix()}"'
+            print(exec_shell(convert_cmd))
+        else:
+            print(f'Copy {source_file.as_posix()} to {destination_file.as_posix()} ...')
+            shutil.copyfile(source_file.as_posix(), destination_file.as_posix())
 
 
 if __name__ == "__main__":
