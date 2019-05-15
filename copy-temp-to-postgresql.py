@@ -31,23 +31,23 @@ def do_convert(target_database_connections):
         last_timestamp = postgresql_cursor.fetchone()['last_timestamp']
         last_timestamp = last_timestamp if last_timestamp is not None else datetime.datetime(1970, 1, 1, 0, 0, 0, 0)
 
-        mysql_connection = mysql.connector.connect(
-            user='booc',
-            password='adm232',
+        postgresql_connection_source = psycopg2.connect(
             host='192.168.1.14',
-            database='temperatures')
-        mysql_cursor = mysql_connection.cursor()
+            database='temperatures',
+            user='temperatures',
+            password='temperatures')
+        postgresql_cursor_source = postgresql_connection_source.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-        query = 'SELECT Core0, Core1, CPU, ATZ1, ATZ2, MB1, MB2, SDA, SDB, SDC, TimeStamp ' \
-                'FROM temperatures.temperatures te WHERE te.Timestamp > %s '
+        query = 'SELECT core0, core1, cpu, atz1, atz2, mb1, mb2, sda, sdb, sdc, timestamp ' \
+                'FROM temperatures.temperatures te WHERE te.timestamp > %s '
 
-        mysql_cursor.execute(query, (last_timestamp,))
-        data = mysql_cursor.fetchall()
-        mysql_connection.close()
+        postgresql_cursor_source.execute(query, (last_timestamp,))
+        data = postgresql_cursor_source.fetchall()
+        postgresql_connection_source.close()
 
-        query = "insert into temperatures.temperatures " \
-                "(Core0, Core1, CPU, ATZ1, ATZ2, MB1, MB2, SDA, SDB, SDC, TimeStamp) " \
-                "values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+        query = 'insert into temperatures.temperatures ' \
+                '(core0, core1, cpu, atz1, atz2, mb1, mb2, sda, sdb, sdc, timestamp) ' \
+                'values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
         psycopg2.extras.execute_batch(
             postgresql_cursor,
             query,
@@ -60,7 +60,6 @@ def do_convert(target_database_connections):
 
 if __name__ == "__main__":
     g_connections = [
-        Connection('192.168.1.7', 'temperatures', 'temperatures', 'temperatures'),
-        Connection('192.168.1.14', 'temperatures', 'temperatures', 'temperatures')
+        Connection('192.168.1.7', 'temperatures', 'temperatures', 'temperatures')
     ]
     do_convert(g_connections)
