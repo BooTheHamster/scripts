@@ -6,6 +6,7 @@ import urllib.parse
 import shutil
 from pathlib import Path
 import subprocess
+import multiprocessing as mp
 
 TRACK_FIELD_TRACKS = 'Tracks'
 TRACK_FIELD_LOCATION = 'Location'
@@ -14,6 +15,17 @@ TRACK_FIELD_YEAR = 'Year'
 TRACK_FIELD_NUMBER = 'Track Number'
 TRACK_FIELD_NAME = 'Name'
 TRACK_FIELD_ARTIST = 'Artist'
+
+remove_punctuation_map = dict((ord(char), None) for char in '\'\\/*?:"<>|')
+target_i = -20.0
+target_lra = 7.0
+target_tp = -2.0
+target_offset = 0.0
+
+input_i_re = re.compile(r'\"input_i\"\s:\s\"(-?\d+.?\d+)')
+input_tp_re = re.compile(r'\"input_tp\"\s:\s\"(-?\d+.?\d+)')
+input_lra_re = re.compile(r'\"input_lra\"\s:\s\"(-?\d+.?\d+)')
+input_thresh_re = re.compile(r'\"input_thresh\"\s:\s\"(-?\d+.?\d+)')
 
 
 def get_itunes_library():
@@ -40,6 +52,8 @@ def exec_shell(shell_command):
 
 def get_tracks_map(library):
     result = {}
+
+    print('Process iTunes library export file')
 
     # Берется только то, что лежит в каталоге с наименованием Music и ниже.
     drive_re = re.compile(r'.+(/Volumes/\w+/Music.+)')
@@ -92,77 +106,70 @@ def get_loudnorm_parameter(parameter_reg, analyze_result):
     return value_str
 
 
+def process_track(track, out_folder):
+    source_file = Path(track[TRACK_FIELD_LOCATION])
+
+    artist = track[TRACK_FIELD_ARTIST].translate(remove_punctuation_map)
+    name = track[TRACK_FIELD_NAME].translate(remove_punctuation_map)
+
+    destination_file = Path.joinpath(
+        out_folder,
+        f'{artist} - {name}.mp3')
+
+    source_path = source_file.as_posix()
+
+    normalize_filter_cmd = f'-filter:a ' \
+        f'loudnorm=print_format=json' \
+        f':i={target_i}' \
+        f':lra={target_lra}' \
+        f':tp={target_tp}' \
+        f':offset={target_offset}'
+
+    # Получение информации о громкости трека.
+    analyze_cmd = f'ffmpeg -i "{source_path}" {normalize_filter_cmd} -vn -sn -dn -f null /dev/null'
+    analyze_result = exec_shell(analyze_cmd)
+    input_i = get_loudnorm_parameter(input_i_re, analyze_result)
+    input_tp = get_loudnorm_parameter(input_tp_re, analyze_result)
+    input_lra = get_loudnorm_parameter(input_lra_re, analyze_result)
+    input_thresh = get_loudnorm_parameter(input_thresh_re, analyze_result)
+
+    normalize_filter_cmd = f'-filter:a ' \
+        f'loudnorm=linear=true' \
+        f':i={target_i}' \
+        f':lra={target_lra}' \
+        f':tp={target_tp}' \
+        f':offset={target_offset}' \
+        f':measured_I={input_i}' \
+        f':measured_LRA={input_lra}' \
+        f':measured_tp={input_tp}' \
+        f':measured_thresh={input_thresh}'
+
+    if source_file.suffix == '.m4a':
+        print(f'Convert {source_path} to {destination_file.as_posix()} ...')
+        convert_cmd = f'ffmpeg -i "{source_path}"' \
+            f' -loglevel panic -y {normalize_filter_cmd} -vn -acodec libmp3lame -ab 320k -ar 44100' \
+            f' "{destination_file.as_posix()}" '
+        exec_shell(convert_cmd)
+    else:
+        print(f'Normalize volume {source_path} to {destination_file.as_posix()} ...')
+        convert_cmd = f'ffmpeg -i "{source_path}" -loglevel panic -y {normalize_filter_cmd} -vn -acodec' \
+            f' libmp3lame -ab 320k -ar 44100 "{destination_file.as_posix()}" '
+        exec_shell(convert_cmd)
+
+
 def create_playlist_files(tracks):
-    remove_punctuation_map = dict((ord(char), None) for char in '\'\\/*?:"<>|')
     out_folder = Path.joinpath(Path.home(), 'Downloads', 'Avto Music')
+    pool = mp.Pool(mp.cpu_count())
 
     if out_folder.exists():
         shutil.rmtree(out_folder.as_posix())
 
     out_folder.mkdir()
 
-    tracks1 = [tracks[0], tracks[1], tracks[2]]
+    result = [pool.apply_async(process_track, [track, out_folder]) for track in tracks]
 
-    input_i_re = re.compile(r'\"input_i\"\s:\s\"(-?\d+.?\d+)')
-    input_tp_re = re.compile(r'\"input_tp\"\s:\s\"(-?\d+.?\d+)')
-    input_lra_re = re.compile(r'\"input_lra\"\s:\s\"(-?\d+.?\d+)')
-    input_thresh_re = re.compile(r'\"input_thresh\"\s:\s\"(-?\d+.?\d+)')
-
-    for track in tracks1:
-        source_file = Path(track[TRACK_FIELD_LOCATION])
-
-        artist = track[TRACK_FIELD_ARTIST].translate(remove_punctuation_map)
-        name = track[TRACK_FIELD_NAME].translate(remove_punctuation_map)
-
-        destination_file = Path.joinpath(
-            out_folder,
-            f'{artist} - {name}.mp3')
-
-        source_path = source_file.as_posix()
-
-        target_i = -20.0
-        target_lra = 7.0
-        target_tp = -2.0
-        target_offset = 0.0
-
-        normalize_filter_cmd = f'-filter:a ' \
-            f'loudnorm=print_format=json' \
-            f':i={target_i}' \
-            f':lra={target_lra}' \
-            f':tp={target_tp}' \
-            f':offset={target_offset}'
-
-        # Получение информации о громкости трека.
-        analyze_cmd = f'ffmpeg -i "{source_path}" {normalize_filter_cmd} -vn -sn -dn -f null /dev/null'
-        analyze_result = exec_shell(analyze_cmd)
-        print(analyze_result)
-        input_i = get_loudnorm_parameter(input_i_re, analyze_result)
-        input_tp = get_loudnorm_parameter(input_tp_re, analyze_result)
-        input_lra = get_loudnorm_parameter(input_lra_re, analyze_result)
-        input_thresh = get_loudnorm_parameter(input_thresh_re, analyze_result)
-
-        normalize_filter_cmd = f'-filter:a ' \
-            f'loudnorm=linear=true' \
-            f':i={target_i}' \
-            f':lra={target_lra}' \
-            f':tp={target_tp}' \
-            f':offset={target_offset}' \
-            f':measured_I={input_i}' \
-            f':measured_LRA={input_lra}' \
-            f':measured_tp={input_tp}' \
-            f':measured_thresh={input_thresh}'
-
-        if source_file.suffix == '.m4a':
-            print(f'Convert {source_path} to {destination_file.as_posix()} ...')
-            convert_cmd = f'ffmpeg -i "{source_path}"' \
-                f' -loglevel panic -y {normalize_filter_cmd} -vn -acodec libmp3lame -ab 320k -ar 44100' \
-                f' "{destination_file.as_posix()}" '
-            print(exec_shell(convert_cmd))
-        else:
-            print(f'Normalize volume {source_path} to {destination_file.as_posix()} ...')
-            convert_cmd = f'ffmpeg -i "{source_path}" -loglevel panic -y {normalize_filter_cmd} -vn -acodec' \
-                f' libmp3lame -ab 320k -ar 44100 "{destination_file.as_posix()}" '
-            print(exec_shell(convert_cmd))
+    pool.close()
+    pool.join()
 
 
 if __name__ == "__main__":
@@ -170,3 +177,4 @@ if __name__ == "__main__":
     g_tracks_map = get_tracks_map(g_library)
     g_tracks = get_avto_tracks(g_library, g_tracks_map)
     create_playlist_files(g_tracks)
+
