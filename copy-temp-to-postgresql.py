@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-# coding: utf8
+# -*- coding: utf-8 -*-
 import datetime
-import mysql.connector
 import psycopg2
 import psycopg2.extras
-import time
 
 
 class Connection:
