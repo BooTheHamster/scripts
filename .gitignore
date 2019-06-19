@@ -23,3 +23,7 @@ yarn-error.log*
 *.njsproj
 *.sln
 *.sw*
+
+# Some libs
+SDL2.dll
+
