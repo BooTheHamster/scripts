@@ -26,7 +26,7 @@ TRACK_FIELD_LOCATION = 'Location'
 TRACK_FIELD_ALBUM = 'Album'
 TRACK_FIELD_YEAR = 'Year'
 TRACK_FIELD_NUMBER = 'Track Number'
-
+TRACK_FIELD_ID = 'Track ID'
 
 def get_itunes_library():
     itunes_library_path = Path.joinpath(Path.home(), "Music", "iTunes", "iTunes Music Library.xml")
@@ -42,6 +42,10 @@ def get_tracks_map(library):
     drive_re = re.compile(r'.+(/Music.+)')
 
     for trackId, trackInfo in library[TRACK_FIELD_TRACKS].items():
+
+        if TRACK_FIELD_LOCATION not in trackInfo:
+            continue
+
         location = urllib.parse.unquote(trackInfo[TRACK_FIELD_LOCATION])
         match = drive_re.match(location)
 
@@ -78,9 +82,16 @@ def get_smart_playlist_map(library, tracks_map):
 
         tracks = []
         for track in playlist[playlist_items]:
-            tracks.append(tracks_map[str(track['Track ID'])])
 
-        result[playlist_name] = tracks
+            track_id = str(track[TRACK_FIELD_ID])
+
+            if track_id not in tracks_map:
+                continue
+
+            tracks.append(tracks_map[track_id])
+
+        if tracks:
+            result[playlist_name] = tracks
 
     return result
 
