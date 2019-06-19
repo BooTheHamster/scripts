@@ -18,7 +18,8 @@ EXCEPT_PLAYLIST_NAMES = {
     'Загружено',
     'Музыка',
     'Загружено',
-    'Медиатека'}
+    'Медиатека',
+    'Покупки'}
 
 TRACK_FIELD_TRACKS = 'Tracks'
 TRACK_FIELD_LOCATION = 'Location'
