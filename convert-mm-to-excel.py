@@ -15,30 +15,43 @@ time_number_re = re.compile(r'.*\((\d+[.,]?\d?).*\)')
 class NodeInfo:
     def __init__(self, text=""):
         self.text = text
-        self.nodes = []
+        self.childs: [NodeInfo] = []
         self.time = None
+        self.child_time = None
 
     def append_child(self, child):
-        self.nodes.append(child)
+        self.childs.append(child)
 
     def has_childs(self):
-        return len(self.nodes) > 0
+        return len(self.childs) > 0;
 
-    def child_time(self):
+    def update_time(self):
 
-        result = None
+        if not self.has_childs():
+            self.child_time = self.time
+            return
 
-        for child in self.nodes:
-            if child.has_childs():
-                child_time = child.child_time()
+        for child in self.childs:
+            child.update_time()
 
-                if child_time is not None:
-                    result = child_time if result is None else result + child_time
-            else:
-                if child.time is not None:
-                    result = child.time if result is None else result + child.time
+            child_time = child.time if child.child_time is None else child.child_time
 
-        return result
+            if child_time is None:
+                continue
+
+            self.child_time = child_time if self.child_time is None else self.child_time + child_time
+
+    def get_display_time(self):
+        if self.time is None:
+            return "" if self.child_time is None else str(self.child_time)
+
+        if self.child_time is None:
+            return "" if self.time is None else str(self.time)
+
+        if self.time == self.child_time:
+            return str(self.time)
+
+        return f"{self.time} ?? {self.child_time}"
 
 
 def append_nodes(xml_parent_node, parent_node_info: NodeInfo):
@@ -85,33 +98,17 @@ def write_to_file_csv(outfile, node_info: NodeInfo, intend: str, number: str):
         node_intend = intend
         intend += "  "
 
-    if not node_info.text:
-        node_time = f"{node_info.child_time()};"
-    else:
-        if node_info.has_childs():
-            child_time = node_info.child_time()
-
-            if node_info.time is None:
-                node_time = "" if child_time is None else f"{node_info.child_time()};"
-            else:
-                if child_time is None:
-                    node_time = f"{node_info.time};"
-                else:
-                    node_time = f"{node_info.time} ?? {child_time};" if child_time != node_info.time \
-                        else f"{node_info.time};"
-        else:
-            node_time = "" if node_info.time is None else f"{node_info.time};"
-
+    node_time = node_info.get_display_time().replace('.', ',')
     node_number = "" if not number else f"{number}."
     node_text = "Итого;" if not node_info.text else f" {node_info.text};"
-    line = f"{node_intend}{node_number}{node_text}{node_time.replace('.', ',')}"
+    line = f"{node_intend}{node_number}{node_text}{node_time}"
 
     if line:
         outfile.write(line)
         outfile.write("\n")
 
     child_number = 1
-    for child in node_info.nodes:
+    for child in node_info.childs:
         write_to_file_csv(outfile, child, intend, f"{node_number}{child_number}")
         child_number += 1
 
@@ -124,23 +121,8 @@ def write_to_file(outfile, node_info: NodeInfo, intend: str, number: str):
         node_intend = intend
         intend += "  "
 
-    if not node_info.text:
-        node_time = f" ({node_info.child_time()} ч)"
-    else:
-        if node_info.has_childs():
-            child_time = node_info.child_time()
-
-            if node_info.time is None:
-                node_time = "" if child_time is None else f"({node_info.child_time()} ч)"
-            else:
-                if child_time is None:
-                    node_time = f"({node_info.time} ч)"
-                else:
-                    node_time = f"({node_info.time} ?? {child_time} ч)" if child_time != node_info.time \
-                        else f"({node_info.time} ч)"
-        else:
-            node_time = "" if node_info.time is None else f"({node_info.time} ч)"
-
+    node_time = node_info.get_display_time().replace(',', '.')
+    node_time = node_time if not node_time else f"({node_time} ч)"
     node_number = "" if not number else f"{number}."
     node_text = "Итого:" if not node_info.text else f" {node_info.text} "
     line = f"{node_intend}{node_number}{node_text}{node_time}"
@@ -150,7 +132,7 @@ def write_to_file(outfile, node_info: NodeInfo, intend: str, number: str):
         outfile.write("\n")
 
     child_number = 1
-    for child in node_info.nodes:
+    for child in node_info.childs:
         write_to_file(outfile, child, intend, f"{node_number}{child_number}")
         child_number += 1
 
@@ -158,6 +140,7 @@ def write_to_file(outfile, node_info: NodeInfo, intend: str, number: str):
 def process_free_mind_document(path):
     in_file_path = Path(path)
     root_node_info = get_nodes_information(in_file_path)
+    root_node_info.update_time()
 
     out_file_path = Path(in_file_path.parent).joinpath(in_file_path.name).with_suffix('.txt')
 
@@ -165,8 +148,9 @@ def process_free_mind_document(path):
         out_file_path.unlink()
 
     with out_file_path.open('wt', encoding="utf-8") as outfile:
+        outfile.write(f"{out_file_path.with_suffix('').name}\n\n")
         write_to_file_csv(outfile, root_node_info, None, None)
-        outfile.write("\n-----\n\n")
+        outfile.write("\n-----\n\n!!\n")
         write_to_file(outfile, root_node_info, None, None)
 
 
