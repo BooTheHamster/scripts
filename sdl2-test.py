@@ -6,6 +6,8 @@ from pathlib import Path
 
 # Установка каталога по которому находится библиотека SDL.
 # Необходимо делать перед импортом модуля.
+from random import randint
+
 os.environ['PYSDL2_DLL_PATH'] = str(Path(sys.argv[0]).parent)
 import sdl2.ext  # nopep8
 
@@ -24,20 +26,25 @@ class SpriteFactory(sdl2.ext.SpriteFactory):
         super(SpriteFactory, self).__init__(sdl2.ext.SOFTWARE)
 
 
-class NegativeBlock(sdl2.ext.Entity):
+class Block(sdl2.ext.Entity):
+    def __init__(self, world, factory, color, x, y, size):
+        self.sprite = factory.from_color(color, size)
+        self.sprite.position = x, y
+        self.velocity = Velocity()
+
+
+class NegativeBlock(Block):
     _color = sdl2.ext.Color(0, 0, 255)
 
-    def __init__(self, factory, x=0, y=0):
-        self.sprite = factory.from_color(self._color)
-        self.sprite.position = x, y
+    def __init__(self, world, factory, x, y, size):
+        super().__init__(world, factory, self._color, x, y, size)
 
 
-class PositiveBlock(sdl2.ext.Entity):
+class PositiveBlock(Block):
     _color = sdl2.ext.Color(255, 0, 0)
 
-    def __init__(self, factory, size, x=0, y=0):
-        self.sprite = factory.from_color(self._color, size)
-        self.sprite.position = x, y
+    def __init__(self, world, factory, x, y, size):
+        super().__init__(world, factory, self._color, x, y, size)
 
 
 class MovementSystem(sdl2.ext.Applicator):
@@ -51,27 +58,38 @@ class MovementSystem(sdl2.ext.Applicator):
 
     def process(self, world, components):
         for velocity, sprite in components:
-            width, height = sprite.size
-
-            # Спрайты вышедшие за границу видимой области не двигаются.
-            if (sprite.x >= (self.left - width)) and (sprite.x <= self.right):
-                sprite.x += velocity.vx
-
-            if (sprite.y >= (self.top - height)) and (sprite.y <= self.bottom):
-                sprite.y += velocity.vy
+            sprite.x += velocity.vx
+            sprite.y += velocity.vy
 
 
 class Velocity(object):
     def __init__(self):
-        super(Velocity, self).__init__()
+        super().__init__()
         self.vx = 0
         self.vy = 0
 
 
-class Game:
-    _size = ()
-    _title = ''
+class PositiveBlockFactory(object):
+    def __init__(self, world, factory, world_size):
+        super().__init__()
+        self._world_width = world_size[0]
+        self._world_height = world_size[1]
+        self._world = world
+        self._factory = factory
 
+    def create_block(self):
+        width = randint(0, self._world_width / 3)
+        height = randint(0, self._world_height / 5)
+        x = self._world_width - width
+        y = int(-height / 2)
+
+        block = PositiveBlock(self._world, self._factory, x, y, (width, height))
+        block.velocity.vy += 1;
+
+        return block
+
+
+class Game:
     def __init__(self, title, size):
         sdl2.ext.init()
         self._size = size
@@ -83,11 +101,14 @@ class Game:
 
         world = sdl2.ext.World()
         factory = SpriteFactory()
-
-        positive_block = PositiveBlock(world, factory, (20, 20))
-
+        movement_system = MovementSystem(0, 0, self._size[0], self._size[1])
         renderer = Renderer(window)
+        positive_block_factory = PositiveBlockFactory(world, factory, self._size)
+
+        world.add_system(movement_system)
         world.add_system(renderer)
+
+        positive_block_factory.create_block()
 
         running = True
         while running:
