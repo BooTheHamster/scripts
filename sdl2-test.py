@@ -12,13 +12,20 @@ os.environ['PYSDL2_DLL_PATH'] = str(Path(sys.argv[0]).parent)
 import sdl2.ext  # nopep8
 
 
+class Velocity(object):
+    def __init__(self):
+        super().__init__()
+        self.vx = 0
+        self.vy = 0
+
+
 class Renderer(sdl2.ext.SoftwareSpriteRenderSystem):
     def __init__(self, window):
-        super(Renderer, self).__init__(window)
+        super().__init__(window)
 
     def render(self, sprites, x=None, y=None):
         sdl2.ext.fill(self.surface, sdl2.ext.Color(0, 0, 0))
-        super(Renderer, self).render(sprites)
+        super().render(sprites)
 
 
 class SpriteFactory(sdl2.ext.SpriteFactory):
@@ -27,8 +34,8 @@ class SpriteFactory(sdl2.ext.SpriteFactory):
 
 
 class Block(sdl2.ext.Entity):
-    def __init__(self, world, factory, color, x, y, size):
-        self.sprite = factory.from_color(color, size)
+    def __init__(self, world, factory, color, x, y, width, height):
+        self.sprite = factory.from_color(color, (width, height))
         self.sprite.position = x, y
         self.velocity = Velocity()
 
@@ -36,57 +43,55 @@ class Block(sdl2.ext.Entity):
 class NegativeBlock(Block):
     _color = sdl2.ext.Color(0, 0, 255)
 
-    def __init__(self, world, factory, x, y, size):
-        super().__init__(world, factory, self._color, x, y, size)
+    def __init__(self, world, factory, x, y, width, height):
+        super().__init__(world, factory, self._color, x, y, width, height)
 
 
 class PositiveBlock(Block):
     _color = sdl2.ext.Color(255, 0, 0)
 
-    def __init__(self, world, factory, x, y, size):
-        super().__init__(world, factory, self._color, x, y, size)
-
-
-class MovementSystem(sdl2.ext.Applicator):
-    def __init__(self, left, top, right, bottom):
-        super(MovementSystem, self).__init__()
-        self.left = left
-        self.top = top
-        self.right = right
-        self.bottom = bottom
-        self.componenttypes = Velocity, sdl2.ext.Sprite
-
-    def process(self, world, components):
-        for velocity, sprite in components:
-            sprite.x += velocity.vx
-            sprite.y += velocity.vy
-
-
-class Velocity(object):
-    def __init__(self):
-        super().__init__()
-        self.vx = 0
-        self.vy = 0
+    def __init__(self, world, factory, x, y, width, height):
+        super().__init__(world, factory, self._color, x, y, width, height)
 
 
 class PositiveBlockFactory(object):
-    def __init__(self, world, factory, world_size):
+    def __init__(self, world, factory, size):
         super().__init__()
-        self._world_width = world_size[0]
-        self._world_height = world_size[1]
+        self._width = size[0]
+        self._height = size[1]
         self._world = world
         self._factory = factory
 
     def create_block(self):
-        width = randint(0, self._world_width / 3)
-        height = randint(0, self._world_height / 5)
-        x = self._world_width - width
+        width = randint(0, self._width / 3)
+        height = randint(0, self._height / 5)
+        x = self._width - width
         y = int(-height / 2)
 
-        block = PositiveBlock(self._world, self._factory, x, y, (width, height))
-        block.velocity.vy += 1;
+        block = PositiveBlock(self._world, self._factory, x, y, width, height)
+        block.velocity.vy += 1
 
         return block
+
+
+class PositiveBlockMovementSystem(sdl2.ext.Applicator):
+    def __init__(self, size, factory: PositiveBlockFactory):
+        super().__init__()
+        self._width = size[0]
+        self._height = size[1]
+        self._factory = factory
+        self._blocks = []
+
+        self.componenttypes = Velocity, sdl2.ext.Sprite
+
+    def process(self, world, components):
+        if not self._blocks:
+            block = self._factory.create_block()
+            self._blocks.append(block)
+            return
+
+        for velocity, sprite in components:
+            sprite.y += velocity.vy
 
 
 class Game:
@@ -101,9 +106,9 @@ class Game:
 
         world = sdl2.ext.World()
         factory = SpriteFactory()
-        movement_system = MovementSystem(0, 0, self._size[0], self._size[1])
-        renderer = Renderer(window)
         positive_block_factory = PositiveBlockFactory(world, factory, self._size)
+        movement_system = PositiveBlockMovementSystem(self._size, positive_block_factory)
+        renderer = Renderer(window)
 
         world.add_system(movement_system)
         world.add_system(renderer)
