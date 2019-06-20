@@ -175,4 +175,8 @@ if __name__ == "__main__":
         print('Usage: python3 convert-mm-to-excel.py path')
         sys.exit(-1)
 
-    process_free_mind_document(sys.argv[1])
+    argv_iterator = iter(sys.argv)
+    next(argv_iterator)
+
+    for arg in argv_iterator:
+        process_free_mind_document(arg)
