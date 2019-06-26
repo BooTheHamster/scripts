@@ -23,3 +23,11 @@
 **bookstore-restore-db.ps1**
 
 Скрипт PowerShell для восстановления резервной копии базы данных MS SQL.
+
+**convert-mm-to-excel.py**
+
+Скрипт конвертации документа FreeMind в CSV файл.
+
+**compare-rza-xml-structure.py**
+
+Скрипт сравнения двух XML документов на соответствие структуры.
