@@ -28,6 +28,7 @@ TRACK_FIELD_YEAR = 'Year'
 TRACK_FIELD_NUMBER = 'Track Number'
 TRACK_FIELD_ID = 'Track ID'
 
+
 def get_itunes_library():
     itunes_library_path = Path.joinpath(Path.home(), "Music", "iTunes", "iTunes Music Library.xml")
 
@@ -38,8 +39,8 @@ def get_itunes_library():
 def get_tracks_map(library):
     result = {}
 
-    # Берется только то, что лежит в каталоге с наименованием Music и ниже.
-    drive_re = re.compile(r'.+(/Music.+)')
+    # Берется только то, что ссылается на локальный файл.
+    drive_re = re.compile(r'file:\/\/\/(\w+\/)+((Music|iTunes Media)+.*)')
 
     for trackId, trackInfo in library[TRACK_FIELD_TRACKS].items():
 
@@ -54,7 +55,7 @@ def get_tracks_map(library):
 
         # Fiio X1 II использует Windows пути (проверить возможно ли использование posix пути).
         track = {
-            TRACK_FIELD_LOCATION: 'TF1:' + match[1].replace('/', '\\'),
+            TRACK_FIELD_LOCATION: 'TF1:\\' + match[2].replace('/', '\\'),
             TRACK_FIELD_ALBUM: trackInfo[TRACK_FIELD_ALBUM] if TRACK_FIELD_ALBUM in trackInfo else '',
             TRACK_FIELD_YEAR: trackInfo[TRACK_FIELD_YEAR] if TRACK_FIELD_YEAR in trackInfo else 0,
             TRACK_FIELD_NUMBER: trackInfo[TRACK_FIELD_NUMBER] if TRACK_FIELD_NUMBER in trackInfo else 0
