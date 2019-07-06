@@ -55,8 +55,8 @@ def get_tracks_map(library):
 
     print('Process iTunes library export file')
 
-    # Берется только то, что лежит в каталоге с наименованием Music и ниже.
-    drive_re = re.compile(r'.+(/Volumes/\w+/Music.+)')
+    # Берется только то, что ссылается на локальный файл.
+    drive_re = re.compile(r'file:(.*)')
 
     for trackId, trackInfo in library[TRACK_FIELD_TRACKS].items():
         location = urllib.parse.unquote(trackInfo[TRACK_FIELD_LOCATION])
