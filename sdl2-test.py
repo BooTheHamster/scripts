@@ -3,12 +3,12 @@
 import os
 import sys
 from pathlib import Path
+from random import randint
 
 # Установка каталога по которому находится библиотека SDL.
 # Необходимо делать перед импортом модуля.
-from random import randint
-
 os.environ['PYSDL2_DLL_PATH'] = str(Path(sys.argv[0]).parent)
+
 import sdl2.ext  # nopep8
 
 
@@ -39,6 +39,14 @@ class Block(sdl2.ext.Entity):
         self.sprite.position = x, y
         self.velocity = Velocity()
 
+    @property
+    def y(self):
+        return self.sprite.y
+
+    @property
+    def height(self):
+        return self.sprite.size[1]
+
 
 class NegativeBlock(Block):
     _color = sdl2.ext.Color(0, 0, 255)
@@ -66,7 +74,7 @@ class PositiveBlockFactory(object):
         width = randint(0, self._width / 3)
         height = randint(0, self._height / 5)
         x = self._width - width
-        y = int(-height / 2)
+        y = -height - 1
 
         block = PositiveBlock(self._world, self._factory, x, y, width, height)
         block.velocity.vy += 1
@@ -74,24 +82,70 @@ class PositiveBlockFactory(object):
         return block
 
 
-class PositiveBlockMovementSystem(sdl2.ext.Applicator):
-    def __init__(self, size, factory: PositiveBlockFactory):
+class NegativeBlockFactory(object):
+    def __init__(self, world, factory, size):
         super().__init__()
         self._width = size[0]
         self._height = size[1]
+        self._world = world
         self._factory = factory
-        self._blocks = []
 
+    def create_block(self):
+        width = randint(0, self._width / 3)
+        height = randint(0, self._height / 5)
+        x = 0
+        y = -height - 1
+
+        block = NegativeBlock(self._world, self._factory, x, y, width, height)
+        block.velocity.vy += 1
+
+        return block
+
+
+class BlockMovementSystem(sdl2.ext.Applicator):
+    def __init__(self, size):
+        super().__init__()
+        self._width = size[0]
+        self._height = size[1]
         self.componenttypes = Velocity, sdl2.ext.Sprite
 
     def process(self, world, components):
-        if not self._blocks:
-            block = self._factory.create_block()
-            self._blocks.append(block)
-            return
-
         for velocity, sprite in components:
             sprite.y += velocity.vy
+
+
+class BlockManagementSystem(sdl2.ext.Applicator):
+    def __init__(self, size, factory: PositiveBlockFactory):
+        super().__init__()
+        self._factory = factory
+        self._blocks = []
+        self._height = size[1]
+        self.componenttypes = sdl2.ext.Sprite, sdl2.ext.Sprite
+
+    def create_block(self):
+        block = self._factory.create_block()
+        self._blocks.append(block)
+
+    def process(self, world, components):
+        if not self._blocks:
+            self.create_block()
+            return
+
+        blocks = []
+        need_create_block = True
+        for block in self._blocks:
+            if need_create_block and (block.y < 0):
+                need_create_block = False
+
+            if (block.y - block.height) > self._height:
+                block.delete()
+            else:
+                blocks.append(block)
+
+        self._blocks = blocks
+
+        if need_create_block:
+            self.create_block()
 
 
 class Game:
@@ -107,13 +161,16 @@ class Game:
         world = sdl2.ext.World()
         factory = SpriteFactory()
         positive_block_factory = PositiveBlockFactory(world, factory, self._size)
-        movement_system = PositiveBlockMovementSystem(self._size, positive_block_factory)
+        negative_block_factory = NegativeBlockFactory(world, factory, self._size)
+        movement_system = BlockMovementSystem(self._size)
+        positive_block_management_system = BlockManagementSystem(self._size, positive_block_factory)
+        negative_block_management_system = BlockManagementSystem(self._size, negative_block_factory)
         renderer = Renderer(window)
 
+        world.add_system(negative_block_management_system)
+        world.add_system(positive_block_management_system)
         world.add_system(movement_system)
         world.add_system(renderer)
-
-        positive_block_factory.create_block()
 
         running = True
         while running:
