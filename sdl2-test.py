@@ -62,7 +62,7 @@ class PositiveBlock(Block):
         super().__init__(world, factory, self._color, x, y, width, height)
 
 
-class PositiveBlockFactory(object):
+class BlockFactory(object):
     def __init__(self, world, factory, size):
         super().__init__()
         self._width = size[0]
@@ -70,34 +70,45 @@ class PositiveBlockFactory(object):
         self._world = world
         self._factory = factory
 
-    def create_block(self):
-        width = randint(0, self._width / 3)
-        height = randint(0, self._height / 5)
-        x = self._width - width
-        y = -height - 1
+    def get_block_size(self):
+        width = randint(int(self._width / 5), int(self._width / 3))
+        height = randint(int(self._height / 7), int(self._height / 5))
 
-        block = PositiveBlock(self._world, self._factory, x, y, width, height)
-        block.velocity.vy += 1
+        return width, height
+
+    def do_create_block(self, width, height):
+        raise NotImplementedError()
+
+    def create_block(self):
+        width, height = self.get_block_size()
+        block = self.do_create_block(width, height)
+        block.velocity.vy = 1
 
         return block
 
 
-class NegativeBlockFactory(object):
+class PositiveBlockFactory(BlockFactory):
     def __init__(self, world, factory, size):
-        super().__init__()
-        self._width = size[0]
-        self._height = size[1]
-        self._world = world
-        self._factory = factory
+        super().__init__(world, factory, size)
 
-    def create_block(self):
-        width = randint(0, self._width / 3)
-        height = randint(0, self._height / 5)
+    def do_create_block(self, width, height):
+        x = self._width - width
+        y = -height - 1
+
+        block = PositiveBlock(self._world, self._factory, x, y, width, height)
+
+        return block
+
+
+class NegativeBlockFactory(BlockFactory):
+    def __init__(self, world, factory, size):
+        super().__init__(world, factory, size)
+
+    def do_create_block(self, width, height):
         x = 0
         y = -height - 1
 
         block = NegativeBlock(self._world, self._factory, x, y, width, height)
-        block.velocity.vy += 1
 
         return block
 
@@ -115,7 +126,7 @@ class BlockMovementSystem(sdl2.ext.Applicator):
 
 
 class BlockManagementSystem(sdl2.ext.Applicator):
-    def __init__(self, size, factory: PositiveBlockFactory):
+    def __init__(self, size, factory: BlockFactory):
         super().__init__()
         self._factory = factory
         self._blocks = []
