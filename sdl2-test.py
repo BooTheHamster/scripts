@@ -7,9 +7,12 @@ from random import randint
 
 # Установка каталога по которому находится библиотека SDL.
 # Необходимо делать перед импортом модуля.
-os.environ['PYSDL2_DLL_PATH'] = str(Path(sys.argv[0]).parent)
+if sys.platform == "win32":
+    os.environ['PYSDL2_DLL_PATH'] = str(Path(sys.argv[0]).parent)
 
 import sdl2.ext  # nopep8
+
+g_field_width = 40
 
 
 class Velocity(object):
@@ -33,33 +36,57 @@ class SpriteFactory(sdl2.ext.SpriteFactory):
         super(SpriteFactory, self).__init__(sdl2.ext.SOFTWARE)
 
 
-class Block(sdl2.ext.Entity):
+class BaseEntity(sdl2.ext.Entity):
     def __init__(self, world, factory, color, x, y, width, height):
         self.sprite = factory.from_color(color, (width, height))
         self.sprite.position = x, y
         self.velocity = Velocity()
 
+
+class Block(object):
+    def __init__(self, world, factory, color, x, y, width, height, field_x, field_width, field_color):
+        self._block = BaseEntity(world, factory, color, x, y, width, height)
+        self._field = BaseEntity(world, factory, field_color, field_x, y, field_width, height)
+
     @property
     def y(self):
-        return self.sprite.y
+        return self._block.sprite.y
 
     @property
     def height(self):
-        return self.sprite.size[1]
+        return self._block.sprite.size[1]
+
+    def set_velocity(self, vy: int):
+        self._block.velocity.vy = vy
+        self._field.velocity.vy = vy
+
+    def delete(self):
+        self._block.delete()
+        self._field.delete()
 
 
 class NegativeBlock(Block):
-    _color = sdl2.ext.Color(0, 0, 255)
+    _block_color = sdl2.ext.Color(0, 0, 255)
+    _field_color = sdl2.ext.Color(0, 0, 70)
+    _field_width = g_field_width
 
     def __init__(self, world, factory, x, y, width, height):
-        super().__init__(world, factory, self._color, x, y, width, height)
+        field_x = x + width
+
+        super().__init__(world, factory, self._block_color, x, y, width, height, field_x, self._field_width,
+                         self._field_color)
 
 
 class PositiveBlock(Block):
-    _color = sdl2.ext.Color(255, 0, 0)
+    _block_color = sdl2.ext.Color(255, 0, 0)
+    _field_color = sdl2.ext.Color(70, 0, 0)
+    _field_width = g_field_width
 
     def __init__(self, world, factory, x, y, width, height):
-        super().__init__(world, factory, self._color, x, y, width, height)
+        field_x = x - self._field_width
+
+        super().__init__(world, factory, self._block_color, x, y, width, height, field_x, self._field_width,
+                         self._field_color)
 
 
 class BlockFactory(object):
@@ -82,7 +109,7 @@ class BlockFactory(object):
     def create_block(self):
         width, height = self.get_block_size()
         block = self.do_create_block(width, height)
-        block.velocity.vy = 1
+        block.set_velocity(1)
 
         return block
 
