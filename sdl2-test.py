@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import os
 import sys
+import math
 from pathlib import Path
 from random import randint
 
@@ -12,7 +13,18 @@ if sys.platform == "win32":
 
 import sdl2.ext  # nopep8
 
-g_field_width = 40
+
+class Globals:
+    field_opacity = 0.2
+    field_width = 60
+
+    @classmethod
+    def get_field_color(cls, block_color: sdl2.ext.Color):
+        r = math.floor(float(block_color.r) * cls.field_opacity)
+        g = math.floor(float(block_color.g) * cls.field_opacity)
+        b = math.floor(float(block_color.b) * cls.field_opacity)
+
+        return sdl2.ext.Color(r, g, b)
 
 
 class Velocity(object):
@@ -67,8 +79,8 @@ class Block(object):
 
 class NegativeBlock(Block):
     _block_color = sdl2.ext.Color(0, 0, 255)
-    _field_color = sdl2.ext.Color(0, 0, 70)
-    _field_width = g_field_width
+    _field_color = Globals.get_field_color(_block_color)
+    _field_width = Globals.field_width
 
     def __init__(self, world, factory, x, y, width, height):
         field_x = x + width
@@ -79,8 +91,8 @@ class NegativeBlock(Block):
 
 class PositiveBlock(Block):
     _block_color = sdl2.ext.Color(255, 0, 0)
-    _field_color = sdl2.ext.Color(70, 0, 0)
-    _field_width = g_field_width
+    _field_color = Globals.get_field_color(_block_color)
+    _field_width = Globals.field_width
 
     def __init__(self, world, factory, x, y, width, height):
         field_x = x - self._field_width
@@ -109,7 +121,7 @@ class BlockFactory(object):
     def create_block(self):
         width, height = self.get_block_size()
         block = self.do_create_block(width, height)
-        block.set_velocity(1)
+        block.set_velocity(2)
 
         return block
 
