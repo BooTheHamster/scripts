@@ -23,7 +23,7 @@ class NodeInfo:
         self.childs.append(child)
 
     def has_childs(self):
-        return len(self.childs) > 0;
+        return len(self.childs) > 0
 
     def update_time(self):
 
@@ -65,7 +65,7 @@ def append_nodes(xml_parent_node, parent_node_info: NodeInfo):
             time_match = time_re.match(node.text)
 
             if time_match is not None:
-                time = time_match[1];
+                time = time_match[1]
                 node.text = node.text.replace(time, "")
                 time_number_match = time_number_re.match(time)
 
