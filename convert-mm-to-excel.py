@@ -100,8 +100,8 @@ def write_to_file_csv(outfile, node_info: NodeInfo, intend: str, number: str):
 
     node_time = node_info.get_display_time().replace('.', ',')
     node_number = "" if not number else f"{number}."
-    node_text = "Итого;" if not node_info.text else f" {node_info.text};"
-    line = f"{node_intend}{node_number}{node_text}{node_time}"
+    node_text = "Итого;" if not node_info.text else f"{node_info.text};"
+    line = f"{node_intend}{node_number};{node_text}{node_time}"
 
     if line:
         outfile.write(line)
