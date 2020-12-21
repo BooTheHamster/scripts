@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 import re
 import sys
-from pathlib import Path
 import xml.etree.ElementTree as ElementTree
+from pathlib import Path
 
 FREE_MIND_NODE_TAG = 'node'
 FREE_MIND_NODE_TEXT_ATTRIBUTE_TAG = 'TEXT'
@@ -53,6 +53,18 @@ class NodeInfo:
 
         return f"{self.time} ?? {self.child_time}"
 
+    def get_time(self):
+        if self.time is None:
+            return 0 if self.child_time is None else self.child_time
+
+        if self.child_time is None:
+            return 0 if self.time is None else self.time
+
+        if self.time == self.child_time:
+            return self.time
+
+        return max(self.time, self.child_time)
+
 
 def append_nodes(xml_parent_node, parent_node_info: NodeInfo):
     for child in xml_parent_node:
@@ -90,7 +102,7 @@ def get_nodes_information(path: Path):
     return root_node_info
 
 
-def write_to_file_csv(outfile, node_info: NodeInfo, intend: str, number: str):
+def write_to_file_csv(outfile, node_info: NodeInfo, intend: str or None, number: str or None):
     if intend is None:
         node_intend = ""
         intend = ""
@@ -113,7 +125,7 @@ def write_to_file_csv(outfile, node_info: NodeInfo, intend: str, number: str):
         child_number += 1
 
 
-def write_to_file(outfile, node_info: NodeInfo, intend: str, number: str):
+def write_to_file(outfile, node_info: NodeInfo, intend: str or None, number: str or None):
     if intend is None:
         node_intend = ""
         intend = ""
