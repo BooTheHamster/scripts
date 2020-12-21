@@ -125,7 +125,10 @@ def write_to_file_csv(outfile, node_info: NodeInfo, intend: str or None, number:
         child_number += 1
 
 
-def write_to_file(outfile, node_info: NodeInfo, intend: str or None, number: str or None):
+def write_to_file_skype_format(outfile, node_info: NodeInfo, intend: str or None, number: str or None, write_start: bool):
+    if write_start:
+        outfile.write("!!\n")
+
     if intend is None:
         node_intend = ""
         intend = ""
@@ -136,7 +139,7 @@ def write_to_file(outfile, node_info: NodeInfo, intend: str or None, number: str
     node_time = node_info.get_display_time().replace(',', '.')
     node_time = node_time if not node_time else f"({node_time} ч)"
     node_number = "" if not number else f"{number}."
-    node_text = "Итого:" if not node_info.text else f" {node_info.text} "
+    node_text = "Итого:" if not node_info.text else f" {node_info.text}"
     line = f"{node_intend}{node_number}{node_text}{node_time}"
 
     if line:
@@ -145,8 +148,64 @@ def write_to_file(outfile, node_info: NodeInfo, intend: str or None, number: str
 
     child_number = 1
     for child in node_info.childs:
-        write_to_file(outfile, child, intend, f"{node_number}{child_number}")
+        write_to_file_skype_format(outfile, child, intend, f"{node_number}{child_number}", False)
         child_number += 1
+
+
+def write_to_file_in_redmine_format_table(outfile, node_info: NodeInfo, number: str or None, write_start: bool):
+    if write_start:
+        outfile.write("|_. № п/п |_. Задача |_. Оценка, в часах) |\n")
+
+    node_number = "" if not number else f"{number}."
+    node_time = node_info.get_display_time().replace(',', '.')
+    node_time = node_time if not node_time else f"{node_time}"
+
+    if node_info.text:
+        line = f"|{node_number}|{node_info.text}|{node_time}|"
+    else:
+        line = f"|*Итого:*| |_ *{node_time}*|"
+
+    if line:
+        outfile.write(line)
+        outfile.write("\n")
+
+    child_number = 1
+    for child in node_info.childs:
+        write_to_file_in_redmine_format_table(outfile, child, f"{node_number}{child_number}", False)
+        child_number += 1
+
+
+def write_to_file_in_redmine_format(outfile, node_info: NodeInfo, intend: str or None):
+    if intend is None:
+        node_intend = ""
+        intend = "#"
+    else:
+        node_intend = intend
+        intend += "#"
+
+    node_time = node_info.get_display_time().replace(',', '.')
+    node_time = node_time if not node_time else f"{node_time}"
+
+    if node_info.text:
+        line = f"{node_intend} {node_info.text}"
+
+        if node_time:
+            line += f" ({node_time})"
+    else:
+        line = f"*Итого: {node_time}*"
+
+    if line:
+        outfile.write(line)
+        outfile.write("\n")
+
+    child_number = 1
+    for child in node_info.childs:
+        write_to_file_in_redmine_format(outfile, child, intend)
+        child_number += 1
+
+
+def write_delimiter(outfile):
+    outfile.write("\n-----\n")
 
 
 def process_free_mind_document(path):
@@ -160,10 +219,15 @@ def process_free_mind_document(path):
         out_file_path.unlink()
 
     with out_file_path.open('wt', encoding="utf-8") as outfile:
-        outfile.write(f"{out_file_path.with_suffix('').name}\n\n")
+        outfile.write(f"{out_file_path.with_suffix('').name}\n")
+        write_delimiter(outfile)
         write_to_file_csv(outfile, root_node_info, None, None)
-        outfile.write("\n-----\n\n!!\n")
-        write_to_file(outfile, root_node_info, None, None)
+        write_delimiter(outfile)
+        write_to_file_in_redmine_format(outfile, root_node_info, None)
+        write_delimiter(outfile)
+        write_to_file_in_redmine_format_table(outfile, root_node_info, None, True)
+        write_delimiter(outfile)
+        write_to_file_skype_format(outfile, root_node_info, None, None, True)
 
 
 if __name__ == "__main__":
