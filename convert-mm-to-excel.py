@@ -127,7 +127,7 @@ def write_to_file_csv(outfile, node_info: NodeInfo, intend: str or None, number:
 
 def write_to_file_skype_format(outfile, node_info: NodeInfo, intend: str or None, number: str or None, write_start: bool):
     if write_start:
-        outfile.write("!!\n")
+        outfile.write("```\n")
 
     if intend is None:
         node_intend = ""
@@ -137,7 +137,7 @@ def write_to_file_skype_format(outfile, node_info: NodeInfo, intend: str or None
         intend += "  "
 
     node_time = node_info.get_display_time().replace(',', '.')
-    node_time = node_time if not node_time else f"({node_time} ч)"
+    node_time = node_time if not node_time else f" ({node_time} ч)"
     node_number = "" if not number else f"{number}."
     node_text = "Итого:" if not node_info.text else f" {node_info.text}"
     line = f"{node_intend}{node_number}{node_text}{node_time}"
@@ -150,6 +150,9 @@ def write_to_file_skype_format(outfile, node_info: NodeInfo, intend: str or None
     for child in node_info.childs:
         write_to_file_skype_format(outfile, child, intend, f"{node_number}{child_number}", False)
         child_number += 1
+
+    if write_start:
+        outfile.write("```\n")
 
 
 def write_to_file_in_redmine_format_table(outfile, node_info: NodeInfo, number: str or None, write_start: bool):
